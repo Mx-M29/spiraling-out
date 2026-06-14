@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Spiraling out</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: white;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Canvas */
+        #simulationCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: block;
+            background: white;
+            cursor: grab;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+        }
+
+        #simulationCanvas:active {
+            cursor: grabbing;
+        }
+
+        .toolbar {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border-radius: 32px;
+            padding: 8px 16px;
+            display: flex;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .toolbar button {
+            background: transparent;
+            border: none;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 24px;
+            cursor: pointer;
+            color: #333;
+            transition: all 0.2s ease;
+        }
+
+        .toolbar button:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .toolbar button:active {
+            transform: scale(0.96);
+        }
+
+        .toolbar .divider {
+            width: 1px;
+            background: #e0e0e0;
+            margin: 0 4px;
+        }
+
+        /* Floating help button */
+        .help-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            color: #888;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+            z-index: 150;
+        }
+
+        .help-button:hover {
+            background: #333;
+        }
+
+        .help-button:active {
+            transform: scale(0.95);
+        }
+
+        /* Help modal */
+        .help-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 300;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .help-modal.show {
+            display: flex;
+        }
+
+        .help-modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 80%;
+            max-width: 800px;
+            height: 60%;
+            max-height: 500px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .help-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .help-modal-header h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .close-help {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-help:hover {
+            color: #000;
+        }
+
+        .help-modal-body {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .help-sidebar {
+            width: 160px;
+            border-right: 1px solid #e8e8e8;
+            padding: 16px 0;
+            overflow-y: auto;
+        }
+
+        .help-piece-btn {
+            width: 100%;
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.1s ease;
+        }
+
+        .help-piece-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .help-piece-btn.active {
+            background: #f0f0f0;
+            font-weight: 600;
+            border-left: 3px solid #000;
+        }
+
+        .help-content {
+            flex: 1;
+            padding: 20px 24px;
+            overflow-y: auto;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        /* Right side sliding panel */
+        .config-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            width: 40%;
+            max-width: 500px;
+            min-width: 320px;
+            background: white;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+            z-index: 200;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #e8e8e8;
+        }
+
+        .config-panel.open {
+            transform: translateX(0);
+        }
+
+        .panel-lip {
+            position: absolute;
+            left: -32px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 80px;
+            background: white;
+            border-radius: 8px 0 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e8e8e8;
+            border-right: none;
+            z-index: 202;
+        }
+
+        .panel-lip:hover {
+            background: #f8f8f8;
+        }
+
+        .panel-lip svg {
+            width: 16px;
+            height: 16px;
+            stroke: #666;
+            stroke-width: 2;
+            transition: transform 0.3s ease;
+        }
+
+        .config-panel.open .panel-lip svg {
+            transform: rotate(180deg);
+        }
+
+        /* Tab bar */
+        .tab-bar {
+            display: flex;
+            border-bottom: none;
+            background: white;
+            flex-shrink: 0;
+            height: 52px;
+            position: relative;
+        }
+
+        .tab-bar::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e8e8e8;
+            z-index: 0;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 16px 20px;
+            background: white;
+            z-index: 1;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            color: #888;
+            transition: color 0.2s ease;
+            height: 52px;
+            position: relative;
+        }
+
+        .tab.active {
+            color: #000;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #000;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            min-height: 0;
+        }
+
+        .tab-pane {
+            display: none;
+            min-height: 400px;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Form elements */
+        .param-group {
+            margin-bottom: 24px;
+        }
+
+        .param-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .param-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border 0.2s ease;
+        }
+
+        .param-group input:focus {
+            outline: none;
+            border-color: #000;
+        }
+
+        /* Piece list */
+        .piece-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .piece-item {
+            background: #fafafa;
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #f0f0f0;
+            transition: all 0.2s ease;
+        }
+
+        .piece-item.dragging {
+            opacity: 0.4;
+        }
+
+        .piece-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 4px;
+            margin-bottom: 12px;
+            cursor: grab;
+        }
+
+        .piece-header:active {
+            cursor: grabbing;
+        }
+
+        .drag-handle {
+            color: #bbb;
+            font-size: 16px;
+            cursor: grab;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .piece-type-select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+        }
+
+        .remove-piece {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #ccc;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .remove-piece:hover {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+        }
+
+        .color-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .color-channel {
+            flex: 1;
+        }
+
+        .color-channel span {
+            font-size: 11px;
+            color: #999;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .color-channel input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .color-channel input:focus {
+            outline: none;
+        }
+
+        .color-preview-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            background: #fff;
+            flex-shrink: 0;
+        }
+
+        .movement-section {
+            margin-top: 8px;
+        }
+
+        .movement-label {
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 6px;
+        }
+
+        .movement-points {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .movement-point {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .movement-point input {
+            width: 45px;
+            padding: 4px;
+            border: none;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .movement-point input:focus {
+            outline: none;
+        }
+
+        .movement-range {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            background: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .movement-range input {
+            width: 100%;
+            padding: 4px;
+            border: none;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .movement-range input:focus {
+            outline: none;
+        }
+
+        .add-movement {
+            background: none;
+            border: 1px dashed #ccc;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            color: #888;
+        }
+
+        .add-movement:hover {
+            border-color: #000;
+            color: #000;
+        }
+
+        .add-piece-btn {
+            width: 100%;
+            padding: 12px;
+            background: #f8f8f8;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .add-piece-btn:hover {
+            background: #f0f0f0;
+            border-color: #ccc;
+        }
+
+        .simulate-container {
+            padding: 16px 20px 20px 20px;
+            border-top: 1px solid #e8e8e8;
+            background: white;
+            flex-shrink: 0;
+        }
+
+        .simulate-btn {
+            width: 100%;
+            padding: 14px;
+            background: #000;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .simulate-btn:hover {
+            background: #222;
+            transform: translateY(-1px);
+        }
+
+        .simulate-btn:active {
+            transform: translateY(0);
+        }
+
+        .section-title {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #999;
+            margin-bottom: 16px;
+        }
+
+        hr {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        /* Enemy assignment table */
+        .enemy-matrix {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .enemy-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .enemy-table th,
+        .enemy-table td {
+            padding: 0;
+            text-align: center;
+            border: 1px solid #f0f0f0;
+        }
+
+        .enemy-table th {
+            background: #fafafa;
+            font-weight: 500;
+            padding: 12px 8px;
+            vertical-align: top;
+        }
+
+        .enemy-table th .color-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-right: 6px;
+            margin-bottom: 2px;
+            vertical-align: middle;
+            border: 1px solid #e0e0e0;
+        }
+
+        .enemy-table td.first-col {
+            width: 60px;
+            min-width: 60px;
+            max-width: 60px;
+            background: #fafafa;
+            font-weight: 500;
+            text-align: left;
+            padding: 12px;
+            vertical-align: middle;
+        }
+
+        .enemy-table td.first-col .color-dot-small {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-right: 6px;
+            margin-bottom: 2px;
+            vertical-align: middle;
+            border: 1px solid #e0e0e0;
+        }
+
+        .enemy-table td:not(.first-col) {
+            padding: 0;
+            width: auto;
+        }
+
+        .enemy-bit-cell {
+            padding: 0 !important;
+            position: relative;
+        }
+
+        .enemy-bit-cell {
+            aspect-ratio: 1 / 1;
+        }
+
+        .enemy-bit {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 0;
+        }
+
+        .enemy-bit.active {
+            background: #888;
+            color: white;
+        }
+
+        .enemy-bit.inactive {
+            background: #f5f5f5;
+            color: #ccc;
+        }
+
+        .enemy-bit:hover {
+            filter: brightness(0.95);
+        }
+
+        .status {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            border-radius: 40px;
+            font-size: 14px;
+            z-index: 150;
+            pointer-events: none;
+            backdrop-filter: blur(8px);
+            white-space: nowrap;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .status.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="simulationCanvas"></canvas>
+
+    <div class="toolbar">
+        <button id="zoomOutBtn">Zoom Out</button>
+        <button id="zoomInBtn">Zoom In</button>
+        <div class="divider"></div>
+        <button id="resetViewBtn">Reset View</button>
+        <div class="divider"></div>
+        <button id="downloadBtn">Download PNG</button>
+    </div>
+
+    <button id="helpButton" class="help-button">?</button>
+
+    <div id="helpModal" class="help-modal">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h2>About the Simulator</h2>
+                <button id="closeHelpBtn" class="close-help">×</button>
+            </div>
+            <div class="help-modal-body">
+                <div class="help-sidebar">
+                    <button class="help-piece-btn active" data-piece="overview">Overview</button>
+                    <button class="help-piece-btn" data-piece="N">Knight (N)</button>
+                    <button class="help-piece-btn" data-piece="B">Bishop (B)</button>
+                    <button class="help-piece-btn" data-piece="R">Rook (R)</button>
+                    <button class="help-piece-btn" data-piece="Q">Queen (Q)</button>
+                    <button class="help-piece-btn" data-piece="K">King (K)</button>
+                    <button class="help-piece-btn" data-piece="T">Taxi (T)</button>
+                    <button class="help-piece-btn" data-piece="C">Custom (C)</button>
+                    <button class="help-piece-btn" data-piece="enemies">Enemies</button>
+                </div>
+                <div class="help-content" id="helpContent">
+                    <!-- Content will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="config-panel" id="configPanel">
+        <div class="panel-lip" id="panelLip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+            </svg>
+        </div>
+
+        <div class="tab-bar">
+            <button class="tab active" data-tab="pieces">Pieces</button>
+            <button class="tab" data-tab="enemies">Enemies</button>
+        </div>
+
+        <div class="tab-content">
+            <!-- Pieces Tab -->
+            <div class="tab-pane active" id="piecesTab">
+                <div class="param-group">
+                    <label>Spiral loops</label>
+                    <input type="number" id="ring" min="10" max="1000" value="500">
+                </div>
+                <div class="param-group">
+                    <label>Rectangularity</label>
+                    <input type="number" id="rect" min="0" max="30" value="0">
+                </div>
+                
+                <hr>
+                
+                <div class="section-title">Pieces</div>
+                <div id="piecesContainer" class="piece-list"></div>
+                <button id="addPieceBtn" class="add-piece-btn">+ Add Piece</button>
+            </div>
+
+            <!-- Enemies Tab -->
+            <div class="tab-pane" id="enemiesTab">
+                <div class="section-title">Enemy Assignment</div>
+                <div id="enemyMatrix" class="enemy-matrix"></div>
+                <div style="margin-top: 16px; font-size: 12px; color: #999;">
+                    Each button represents whether the row piece attacks the column piece.
+                </div>
+            </div>
+        </div>
+
+        <div class="simulate-container">
+            <button id="simulateBtn" class="simulate-btn">Run Simulation</button>
+        </div>
+    </div>
+
+    <div class="status" id="status">Initializing...</div>
+
+    <script src="knights_module.js"></script>
+    <script>
+        // ========== GLOBALS ==========
+        let module = null;
+        let pieces = [];
+        let dragIndex = null;
+        let canvas = document.getElementById('simulationCanvas');
+        let ctx = canvas.getContext('2d');
+        let statusTimeout = null;
+        
+        // Viewport state
+        let zoom = 1;
+        let panX = 0, panY = 0;
+        let isDragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        
+        // Panel state
+        let panelOpen = true;
+        
+        // ========== MODULE INIT ==========
+        function updateStatus(msg, isError = false) {
+            const statusDiv = document.getElementById('status');
+
+            if (statusTimeout) {
+                clearTimeout(statusTimeout);
+            }
+            
+            statusDiv.textContent = msg;
+            statusDiv.style.background = isError ? 'rgba(231, 76, 60, 0.9)' : 'rgba(0, 0, 0, 0.85)';
+            
+            statusDiv.classList.add('visible');
+            
+            statusTimeout = setTimeout(() => {
+                statusDiv.classList.remove('visible');
+            }, 2000);
+        }
+        
+        function loadModule() {
+            if (typeof Module !== 'undefined') {
+                if (Module.ready) {
+                    onModuleReady();
+                } else {
+                    Module.onRuntimeInitialized = onModuleReady;
+                }
+            } else {
+                setTimeout(loadModule, 100);
+            }
+        }
+        
+        function onModuleReady() {
+            module = Module;
+            updateStatus('Module ready');
+            addPieceWithDefaults();
+            addPieceWithDefaults();
+            updatePiece(pieces[0].id, { color: {r: 0, g: 0, b: 0}, enemies: "10" });
+            updatePiece(pieces[1].id, { color: {r: 255, g: 0, b: 0}, enemies: "01" });
+            renderAll();
+        }
+        
+        // ========== PIECES DATA ==========
+        const pieceTypeNames = {
+            N: 'Knight', B: 'Bishop', R: 'Rook', Q: 'Queen', K: 'King', T: 'Taxi', C: 'Custom'
+        };
+        
+        function normalizeEnemiesStrings() {
+            const pieceCount = pieces.length;
+            pieces.forEach(piece => {
+                let enemiesInt = parseInt(piece.enemies, 2) || 0;
+                const mask = (1 << pieceCount) - 1;
+                enemiesInt = enemiesInt & mask;
+                piece.enemies = enemiesInt.toString(2).padStart(pieceCount, '0');
+            });
+        }
+
+        function addPieceWithDefaults() {
+            if (pieces.length >= 32) {
+                updateStatus('Maximum 32 pieces reached', true);
+                return;
+            }
+            const id = Date.now() + Math.random();
+            const newIndex = pieces.length;
+
+            let enemiesString = '0'.repeat(pieces.length);
+            pieces.push({
+                id: id,
+                type: 'N',
+                color: { r: 255, g: 100, b: 100 },
+                enemies: enemiesString,
+                movement: [{ x: 2, y: 1 }]
+            });
+
+            pieces.forEach(piece => {
+                piece.enemies = '0' + piece.enemies;
+            });
+
+            normalizeEnemiesStrings();
+            renderAll();
+        }
+        
+        function removePiece(id) {
+            if (pieces.length <= 1) {
+                updateStatus('Cannot delete the last piece', true);
+                return;
+            }
+
+            const indexToRemove = pieces.findIndex(p => p.id === id);
+            pieces = pieces.filter(p => p.id !== id);
+            
+            // Remove the corresponding bit from all remaining pieces' enemies strings
+            pieces.forEach(piece => {
+                let enemiesInt = parseInt(piece.enemies, 2) || 0;
+                const mask = (1 << indexToRemove) - 1;
+                const higherBits = enemiesInt >> (indexToRemove + 1);
+                const lowerBits = enemiesInt & mask;
+                const newEnemiesInt = (higherBits << indexToRemove) | lowerBits;
+                piece.enemies = newEnemiesInt.toString(2).padStart(pieces.length, '0');
+            });
+            
+            renderAll();
+        }
+        
+        function updatePiece(id, updates) {
+            const piece = pieces.find(p => p.id === id);
+            if (piece) {
+                Object.assign(piece, updates);
+                renderAll();
+            }
+        }
+        
+        function updateMovementPoint(pieceId, pointIndex, axis, value) {
+            const piece = pieces.find(p => p.id === pieceId);
+            if (piece && piece.movement[pointIndex]) {
+                let newValue = parseInt(value) || 0;
+                if (newValue < -20) {
+                    newValue = -20;
+                } else if (newValue > 20) {
+                    newValue = 20
+                }
+                piece.movement[pointIndex][axis] = newValue;
+                renderAll();
+            }
+        }
+        
+        function addMovementPoint(pieceId) {
+            const piece = pieces.find(p => p.id === pieceId);
+            if (piece && piece.type === 'C') {
+                piece.movement.push({ x: 0, y: 0 });
+                renderAll();
+            }
+        }
+        
+        function removeMovementPoint(pieceId, pointIndex) {
+            const piece = pieces.find(p => p.id === pieceId);
+            if (piece && piece.type === 'C' && piece.movement.length > 1) {
+                piece.movement.splice(pointIndex, 1);
+                renderAll();
+            }
+        }
+        
+        function reorderPieces(fromIndex, toIndex) {
+            const allEnemies = pieces.map(piece => piece.enemies);
+            const newPieces = [...pieces];
+            const [moved] = newPieces.splice(fromIndex, 1);
+            newPieces.splice(toIndex, 0, moved);
+            newPieces.forEach((piece, idx) => {
+                piece.enemies = allEnemies[idx];
+            });
+
+            pieces = newPieces;
+            renderAll();
+        }
+        
+        // ========== ENEMY MATRIX ==========
+        function updateEnemyBit(pieceId, attackerIndex, bitValue) {
+            const piece = pieces.find(p => p.id === pieceId);
+            if (piece) {
+                let enemies = parseInt(piece.enemies, 2) || 0;
+                if (bitValue) {
+                    enemies |= (1 << attackerIndex);
+                } else {
+                    enemies &= ~(1 << attackerIndex);
+                }
+                piece.enemies = enemies.toString(2).padStart(pieces.length, '0');
+                renderAll();
+            }
+        }
+        
+        // ========== RENDER UI ==========
+        function renderAll() {
+            const addBtn = document.getElementById('addPieceBtn');
+            
+            if (addBtn) {
+                if (pieces.length >= 32) {
+                    addBtn.disabled = true;
+                    addBtn.style.opacity = '0.5';
+                    addBtn.style.cursor = 'not-allowed';
+                } else {
+                    addBtn.disabled = false;
+                    addBtn.style.opacity = '1';
+                    addBtn.style.cursor = 'pointer';
+                }
+            }
+
+            renderPiecesList();
+            renderEnemyMatrix();
+        }
+        
+        function renderPiecesList() {
+            const container = document.getElementById('piecesContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            pieces.forEach((piece, idx) => {
+                const div = document.createElement('div');
+                div.className = 'piece-item';
+                div.draggable = true;
+                div.setAttribute('data-index', idx);
+                
+                div.addEventListener('dragstart', (e) => {
+                    dragIndex = idx;
+                    div.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                
+                div.addEventListener('dragend', (e) => {
+                    div.classList.remove('dragging');
+                });
+                
+                div.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+                
+                div.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const targetIndex = idx;
+                    if (dragIndex !== null && dragIndex !== targetIndex) {
+                        reorderPieces(dragIndex, targetIndex);
+                    }
+                    dragIndex = null;
+                });
+                
+                // Header with drag handle
+                const header = document.createElement('div');
+                header.className = 'piece-header';
+                
+                const dragHandle = document.createElement('span');
+                dragHandle.className = 'drag-handle';
+                dragHandle.innerHTML = '⋮⋮';
+                dragHandle.style.cursor = 'grab';
+                
+                const typeSelect = document.createElement('select');
+                typeSelect.className = 'piece-type-select';
+                ['N', 'B', 'R', 'Q', 'K', 'T', 'C'].forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = pieceTypeNames[t];
+                    if (t === piece.type) opt.selected = true;
+                    typeSelect.appendChild(opt);
+                });
+                typeSelect.onchange = (e) => {
+                    const newType = e.target.value;
+                    let movement = piece.movement;
+                    if (newType === 'N') movement = [{ x: 2, y: 1 }];
+                    else if (newType === 'C') movement = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+                    else movement = [{ x: 1, y: 0 }];
+                    updatePiece(piece.id, { type: newType, movement: movement });
+                };
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-piece';
+                removeBtn.textContent = '×';
+                if (pieces.length > 1) {
+                    removeBtn.onclick = () => removePiece(piece.id);
+                } else {
+                    removeBtn.style.opacity = '0.3';
+                    removeBtn.style.cursor = 'not-allowed';
+                    removeBtn.disabled = true;
+                }
+                
+                header.appendChild(dragHandle);
+                header.appendChild(typeSelect);
+                header.appendChild(removeBtn);
+                div.appendChild(header);
+                
+                // Color row
+                const colorRow = document.createElement('div');
+                colorRow.className = 'color-row';
+
+                const swatch = document.createElement('div');
+                swatch.className = 'color-preview-swatch';
+                swatch.style.backgroundColor = `rgb(${piece.color.r}, ${piece.color.g}, ${piece.color.b})`;
+
+                ['R', 'G', 'B'].forEach(channel => {
+                    const channelDiv = document.createElement('div');
+                    channelDiv.className = 'color-channel';
+                    const label = document.createElement('span');
+                    label.textContent = channel;
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.min = 0;
+                    input.max = 255;
+                    input.value = piece.color[channel.toLowerCase()];
+                    input.onchange = (e) => {
+                        const newColor = { ...piece.color, [channel.toLowerCase()]: parseInt(e.target.value) || 0 };
+                        updatePiece(piece.id, { color: newColor });
+                        swatch.style.backgroundColor = `rgb(${newColor.r}, ${newColor.g}, ${newColor.b})`;
+                    };
+                    channelDiv.appendChild(label);
+                    channelDiv.appendChild(input);
+                    colorRow.appendChild(channelDiv);
+                });
+                colorRow.appendChild(swatch);
+                div.appendChild(colorRow);
+                
+                // Movement section
+                const movementSection = document.createElement('div');
+                movementSection.className = 'movement-section';
+                const movementLabel = document.createElement('div');
+                movementLabel.className = 'movement-label';
+                if (piece.type === 'N' || piece.type === 'C') {
+                    movementLabel.textContent = 'Movement';
+                } else {
+                    movementLabel.textContent = 'Range';
+                }
+                movementSection.appendChild(movementLabel);
+
+                if (piece.type === 'C') {
+                    const movementContainer = document.createElement('div');
+                    movementContainer.className = 'movement-points';
+                    
+                    piece.movement.forEach((point, pIdx) => {
+                        const pointDiv = document.createElement('div');
+                        pointDiv.className = 'movement-point';
+                        
+                        const xInput = document.createElement('input');
+                        xInput.type = 'number';
+                        xInput.min = -20;
+                        xInput.max = 20;
+                        xInput.value = point.x;
+                        xInput.placeholder = 'dx';
+                        xInput.onchange = (e) => updateMovementPoint(piece.id, pIdx, 'x', e.target.value);
+                        
+                        const yInput = document.createElement('input');
+                        yInput.type = 'number';
+                        yInput.min = -20;
+                        yInput.max = 20;
+                        yInput.value = point.y;
+                        yInput.placeholder = 'dy';
+                        yInput.onchange = (e) => updateMovementPoint(piece.id, pIdx, 'y', e.target.value);
+                        
+                        pointDiv.appendChild(xInput);
+                        pointDiv.appendChild(yInput);
+                        
+                        if (piece.movement.length > 1) {
+                            const removePoint = document.createElement('button');
+                            removePoint.textContent = '×';
+                            removePoint.style.color = '#ccc';
+                            removePoint.style.background = 'none';
+                            removePoint.style.border = 'none';
+                            removePoint.style.cursor = 'pointer';
+                            removePoint.style.fontSize = '14px';
+                            removePoint.onclick = () => removeMovementPoint(piece.id, pIdx);
+                            pointDiv.appendChild(removePoint);
+                        }
+                        
+                        movementContainer.appendChild(pointDiv);
+                    });
+
+                    movementSection.appendChild(movementContainer);
+                    
+                    if (piece.movement.length < 50) {
+                        const addMoveBtn = document.createElement('button');
+                        addMoveBtn.className = 'add-movement';
+                        addMoveBtn.textContent = '+ Add point';
+                        addMoveBtn.onclick = () => addMovementPoint(piece.id);
+                        movementSection.appendChild(addMoveBtn);
+                    }
+                } else if (piece.type === 'N') {const movementDiv = document.createElement('div');
+                    movementDiv.style.gap = '8px';
+                    movementDiv.style.display = 'flex';
+
+                    const xDiv = document.createElement('div');
+                    xDiv.className = 'movement-range';
+                    xDiv.style.flex = '1';
+
+                    const xInput = document.createElement('input');
+                    xInput.type = 'number';
+                    xInput.min = -20;
+                    xInput.max = 20;
+                    xInput.value = piece.movement[0].x;
+                    xInput.placeholder = 'dx';
+                    xInput.onchange = (e) => updateMovementPoint(piece.id, 0, 'x', e.target.value);
+                    xDiv.appendChild(xInput);
+                    
+                    const yDiv = document.createElement('div');
+                    yDiv.className = 'movement-range';
+                    yDiv.style.flex = '1';
+
+                    const yInput = document.createElement('input');
+                    yInput.type = 'number';
+                    yInput.min = -20;
+                    yInput.max = 20;
+                    yInput.value = piece.movement[0].y;
+                    yInput.placeholder = 'dy';
+                    yInput.onchange = (e) => updateMovementPoint(piece.id, 0, 'y', e.target.value);
+                    yDiv.appendChild(yInput);
+
+                    movementDiv.appendChild(xDiv);
+                    movementDiv.appendChild(yDiv);
+                    movementSection.appendChild(movementDiv);
+                } else {
+                    const rangeDiv = document.createElement('div');
+                    rangeDiv.className = 'movement-range';
+
+                    const rangeInput = document.createElement('input');
+                    rangeInput.type = 'number';
+                    rangeInput.min = 1;
+                    rangeInput.max = 20;
+                    rangeInput.value = piece.movement[0].x;
+                    rangeInput.onchange = (e) => {
+                        let newRange = parseInt(e.target.value) || 1;
+                        if (newRange < 1) {
+                            newRange = 1;
+                        } else if (newRange > 20) {
+                            newRange = 20;
+                        }
+                        updatePiece(piece.id, { movement: [{ x: newRange, y: 0 }] });
+                    };
+
+                    rangeDiv.appendChild(rangeInput);
+                    movementSection.appendChild(rangeDiv);
+                }
+                
+                div.appendChild(movementSection);
+                container.appendChild(div);
+            });
+        }
+        
+        function renderEnemyMatrix() {
+            const container = document.getElementById('enemyMatrix');
+            if (!container) return;
+            
+            if (pieces.length === 0) {
+                container.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">Add pieces to assign enemies</div>';
+                return;
+            }
+            
+            // Create table
+            const table = document.createElement('table');
+            table.className = 'enemy-table';
+            
+            // Build header row
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            
+            // Empty corner cell
+            const cornerTh = document.createElement('th');
+            headerRow.appendChild(cornerTh);
+            
+            // Column headers (target pieces)
+            pieces.forEach((piece, idx) => {
+                const th = document.createElement('th');
+                
+                const colorDot = document.createElement('div');
+                colorDot.className = 'color-dot';
+                colorDot.style.backgroundColor = `rgb(${piece.color.r}, ${piece.color.g}, ${piece.color.b})`;
+
+                const pieceLabel = document.createTextNode(`${piece.type}`);
+
+                th.appendChild(colorDot);
+                th.appendChild(pieceLabel);
+                headerRow.appendChild(th);
+            });
+            
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Build body rows
+            const tbody = document.createElement('tbody');
+            
+            pieces.forEach((attacker, attackerIdx) => {
+                const row = document.createElement('tr');
+                
+                // First column (attacker name with color)
+                const firstCell = document.createElement('td');
+                firstCell.className = 'first-col';
+                
+                const colorDotSmall = document.createElement('div');
+                colorDotSmall.className = 'color-dot-small';
+                colorDotSmall.style.backgroundColor = `rgb(${attacker.color.r}, ${attacker.color.g}, ${attacker.color.b})`;
+                
+                const attackerLabel = document.createTextNode(`${attacker.type}`);
+                
+                firstCell.appendChild(colorDotSmall);
+                firstCell.appendChild(attackerLabel);
+                row.appendChild(firstCell);
+                
+                
+                pieces.forEach((target, targetIdx) => {
+                    const cell = document.createElement('td');
+                    cell.className = 'enemy-bit-cell';
+                    
+                    const enemiesInt = parseInt(target.enemies, 2) || 0;
+
+                    const bitDiv = document.createElement('div');
+                    bitDiv.className = 'enemy-bit';
+                    const isActive = (enemiesInt & (1 << attackerIdx)) !== 0;
+                    bitDiv.classList.add(isActive ? 'active' : 'inactive');
+                    bitDiv.textContent = isActive ? '✓' : '✗';
+                    
+                    bitDiv.onclick = (e) => {
+                        e.stopPropagation();
+                        const newValue = !isActive;
+                        updateEnemyBit(target.id, attackerIdx, newValue);
+                    };
+                    
+                    cell.appendChild(bitDiv);
+                    row.appendChild(cell);
+                });
+                
+                tbody.appendChild(row);
+            });
+            
+            table.appendChild(tbody);
+            container.innerHTML = '';
+            container.appendChild(table);
+        }
+        
+        // ========== SIMULATION ==========
+        function runSimulation() {
+            if (!module) {
+                updateStatus('Module not ready', true);
+                return;
+            }
+            
+            let ring = parseInt(document.getElementById('ring').value);
+            if (ring < 0) {
+                ring = 0;
+                document.getElementById('ring').value = "0";
+            } else if (ring > 1000) {
+                ring = 1000;
+                document.getElementById('ring').value = "1000";
+            }
+            let rect = parseInt(document.getElementById('rect').value);
+            if (rect < 0) {
+                rect = 0;
+                document.getElementById('rect').value = "0";
+            } else if (rect > 30) {
+                rect = 30;
+                document.getElementById('rect').value = "30";
+            }
+            
+            updateStatus('Running simulation...');
+            
+            setTimeout(() => {
+                try {
+                    const piecesData = pieces.map(piece => ({
+                        type: piece.type,
+                        color: { r: piece.color.r, g: piece.color.g, b: piece.color.b },
+                        enemies: piece.enemies,
+                        movement: piece.movement
+                    }));
+                    
+                    const imageDataArray = module.runSimulation(ring, rect, piecesData);
+                    const totalPixels = imageDataArray.length / 4;
+                    const size = 2 * ring + 1;
+                    const scale = Math.min(window.innerWidth / (size + rect), window.innerHeight / size) * 0.8;
+                    canvas.style.width = `${(size + rect) * scale}px`;
+                    canvas.style.height = `${size * scale}px`;
+                    canvas.width = size + rect;
+                    canvas.height = size;
+                    
+                    const imageData = new ImageData(new Uint8ClampedArray(imageDataArray), size + rect, size);
+                    ctx.putImageData(imageData, 0, 0);
+                    
+                    zoom = 1;
+                    panX = 0;
+                    panY = 0;
+                    updateCanvasTransform();
+                    
+                    updateStatus('Complete');
+                } catch (err) {
+                    updateStatus('Error: ' + err.message, true);
+                    console.error(err);
+                }
+            }, 10);
+        }
+        
+        // ========== CANVAS INTERACTIONS ==========
+        function updateCanvasTransform() {
+            canvas.style.transform = `translate(calc(50vw - 50%), calc(50vh - 50%)) scale(${zoom}) translate(${panX}px, ${panY}px)`;
+        }
+        
+        function setupCanvasInteractions() {
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                zoom *= delta;
+                zoom = Math.min(Math.max(zoom, 0.2), 8);
+                updateCanvasTransform();
+            });
+            
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                dragStartX = e.clientX - panX;
+                dragStartY = e.clientY - panY;
+                canvas.style.cursor = 'grabbing';
+            });
+            
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                panX = e.clientX - dragStartX;
+                panY = e.clientY - dragStartY;
+                updateCanvasTransform();
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+                canvas.style.cursor = 'grab';
+            });
+            
+            canvas.width = 0; canvas.height = 0;
+            canvas.style.cursor = 'grab';
+        }
+        
+        function zoomIn() {
+            zoom = Math.min(zoom + 1, 8);
+            updateCanvasTransform();
+        }
+        
+        function zoomOut() {
+            zoom = Math.max(zoom - 1, 1);
+            updateCanvasTransform();
+        }
+        
+        function resetView() {
+            zoom = 1;
+            panX = 0;
+            panY = 0;
+            updateCanvasTransform();
+        }
+
+        function downloadCanvasAsImage() {
+            if (!canvas.width || !canvas.height) {
+                updateStatus('No image to download', true);
+                return;
+            }
+            
+            try {
+                const link = document.createElement('a');
+                
+                // For PNG (lossless, no quality parameter needed)
+                const dataURL = canvas.toDataURL('image/png');
+                
+                // Generate filename with timestamp and dimensions
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                link.download = `spiral_${canvas.width}x${canvas.height}_${timestamp}.png`;
+                link.href = dataURL;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                updateStatus(`Downloaded PNG`);
+            } catch (error) {
+                updateStatus('Download failed: ' + error.message, true);
+                console.error(error);
+            }
+        }
+        
+        // ========== PANEL TOGGLE ==========
+        function togglePanel() {
+            const panel = document.getElementById('configPanel');
+            panel.classList.toggle('open');
+        }
+        
+        // ========== TAB SWITCHING ==========
+        function switchTab(tabId) {
+            const tabContent = document.querySelector('.tab-content');
+
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('active');
+            });
+            
+            document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById(`${tabId}Tab`).classList.add('active');
+
+            tabContent.scrollTop = 0;
+        }
+
+        // ========== HELP MODAL ==========
+        // Help menu functionality
+        function showHelpModal() {
+            const modal = document.getElementById('helpModal');
+            modal.classList.add('show');
+        }
+
+        function hideHelpModal() {
+            const modal = document.getElementById('helpModal');
+            modal.classList.remove('show');
+        }
+
+        function updateHelpContent(pieceType) {
+            const contentDiv = document.getElementById('helpContent');
+            
+            const explanations = {
+                overview: `
+                    <h3>Overview</h3>
+                    <p>This simulator is an extension of the "red and black knights" game discussed in this 
+                        <a href="https://www.youtube.com/watch?v=UiX4CFIiegM">Numberphile video</a> featuring N. J. A. Sloane, 
+                        incorporating the ideas shown in Jonas Karlsson's 
+                        <a href="https://jonka364.github.io/stendhal/stendhal.html">amazing website</a>.</p>
+                    <br>
+                    <h3>How it works</h3>
+                    <p>The simulation consists of an infinite spiraling chessboard in which different "players" take turns to place 
+                        their pieces. Each player has a unique piece type assigned and each round they try to place a piece in the 
+                        earliest square available, meaning a square that isn't occupied by another piece and isn't being targeted by 
+                        an enemy piece.</p>
+                    <p>Each piece can be customized by choosing its type, modifying its movement and color, and deciding which pieces 
+                        it can attack. The piece types and enemy assignment are explained in their own sections.</p>
+                    <p>After preparing all the pieces to one's liking, pressing the "Run Simulation" button will generate an image that 
+                        represents the result of said simulation. Each square's color represents the piece that was able to be placed 
+                        there, and a white square represents a square that was left empty, which is why I don't recommend making a 
+                        piece fully white. One can zoom in and out of the image to inspect it, and even download it as a PNG!</p>
+                    <br>
+                    <h3>Parameters</h3>
+                    <p><strong>Spiral loops:</strong> How many loops around the spiral to simulate. Basically sets the resulting image's
+                        size.</p>
+                    <p><strong>Rectangularity:</strong> A new parameter introduced in this simulator. It specifies how many additional 
+                        squares it takes the spiral to take its first turn. The following images represent spirals with rectangularity 
+                        0, 1, and 2, respectively.</p>
+                    <br>
+                    <div style="display: flex; gap: 6px; width: 100%;">
+                        <img src="assets/rect0.png" alt="Rectangularity 0 spiral" style="flex: 1 1 auto; min-width: 0;">
+                        <img src="assets/rect1.png" alt="Rectangularity 1 spiral" style="flex: 1 1 auto; min-width: 0;">
+                        <img src="assets/rect2.png" alt="Rectangularity 2 spiral" style="flex: 1 1 auto; min-width: 0;">
+                    </div>
+                `,
+                N: `
+                    <h3>Knight (N)</h3>
+                    <p>The classic knight piece in chess has a curious movement pattern, as it is able to jump to any square 
+                        that is 2 squares away in one axis and 1 square away in the other. Following this logic, the knight 
+                        piece in this simulator can be modified to target squares at other distances.</p>
+                    <br>
+                    <h3>Examples</h3>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <img src="assets/knight_targets.gif" alt="Knight targets" style="height: 300px;">
+                    </div>
+                    <p>The previous gif shows five examples of knight pieces. First is the original, which we can represent 
+                        as having movement of (2, 1). Due to the piece's symmetry, neither the order of the numbers nor their 
+                        sign affects the end result, so it would equally as valid to describe it as (-1, 2).</p>
+                    <p>The second piece shown has movement (3, 1), and the third is (3, 2). The next two examples show cases 
+                        in which the symmetry of movement causes what would normally be 8 targets to overlap and produce just 4. 
+                        The first of these is the result of setting the movement to (2, 0), and the last one is (3, 3).</p>
+                `,
+                B: `
+                    <h3>Bishop (B)</h3>
+                    <p>A bishop in chess can attack diagonally ad infinitum, but this would be really boring in a simulation. 
+                        The bishops in this simulator can only attack diagonally up to a certain range which can be modified.</p>
+                    <br>
+                    <h3>Examples</h3>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <img src="assets/bishop_targets.gif" alt="Bishop targets" style="height: 300px;">
+                    </div>
+                    <p>The previous gif shows three examples of bishops with different ranges. The first one has a range of 1, 
+                        the second has range 2, and the third has range 3.</p>
+                `,
+                R: `
+                    <h3>Rook (R)</h3>
+                    <p>In chess, the rook is able to attack orthogonally forever. This is boring though, so the simulator only 
+                        allows rooks to attack up to a certain range which can be modified.</p>
+                    <br>
+                    <h3>Examples</h3>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <img src="assets/rook_targets.gif" alt="Rook targets" style="height: 300px;">
+                    </div>
+                    <p>The previous gif shows three examples of rooks with different ranges. The first one has a range of 1, 
+                        the second has range 2, and the third has range 3.</p>
+                `,
+                Q: `
+                    <h3>Queen (Q)</h3>
+                    <p>The queen piece can be seen as a combination between a rook and a bishop. Therefore, the queen is also 
+                        restricted to attacking squares within a certain range which can be modified.</p>
+                    <br>
+                    <h3>Examples</h3>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <img src="assets/queen_targets.gif" alt="Queen targets" style="height: 300px;">
+                    </div>
+                    <p>The previous gif shows three examples of queens with different ranges. The first one has a range of 1, 
+                        the second has range 2, and the third has range 3.</p>
+                `,
+                K: `
+                    <h3>King (K)</h3>
+                    <p>The classic king piece in chess attacks squares that are only one step away in any direction. In this 
+                        simulator, kings can have different ranges that allows them to attack different "rings" of squares 
+                        around them. For example, a king with range 2 targets any square that would require a normal king piece 
+                        to move twice (this is sometimes known as Chebyshev distance).</p>
+                    <br>
+                    <h3>Examples</h3>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <img src="assets/king_targets.gif" alt="King targets" style="height: 300px;">
+                    </div>
+                    <p>The previous gif shows three examples of kings with different ranges. The first one has a range of 1, 
+                        the second has range 2, and the third has range 3.</p>
+                `,
+                T: `
+                    <h3>Taxi (T)</h3>
+                    <p>The taxi piece is a new invention that riffs on the concept of the ranged king piece. Instead of 
+                        targeting squares that are a certain amount of king moves away, which includes diagonal moves, the 
+                        taxi targets squares that are a certain amount of orthogonal moves away (this is sometimes referred to 
+                        as taxicab distance, hence the piece's name).</p>
+                    <br>
+                    <h3>Examples</h3>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <img src="assets/taxi_targets.gif" alt="Taxi targets" style="height: 300px;">
+                    </div>
+                    <p>The previous gif shows three examples of taxis with different ranges. The first one has a range of 1, 
+                        the second has range 2, and the third has range 3.</p>
+                `,
+                C: `
+                    <h3>Custom (C)</h3>
+                    <p>The custom piece is exactly what it sounds like. It's a blank slate that can be modified to attack in 
+                        whatever way you want.</p>
+                    <br>
+                    <h3>Adding Movement Points</h3>
+                    <p>The piece's position is considered (0, 0). Each movement point represents a target square by specifying 
+                        where the target resides in relation to the piece. The first number of a movement point represents 
+                        horizontal distance and the second represents vertical distance. For example, a movement point of (-2, 1) 
+                        means that the piece will target the square that is two spaces to the left and one space up from it.</p>
+                    <br>
+                    <h3>Examples</h3>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <img src="assets/custom_targets.gif" alt="Custom targets" style="height: 300px;">
+                    </div>
+                    <p>The previous gif shows four examples of custom pieces. The first one is defined by the movement points 
+                        (-1, 2), (2, 1), (-2, 0), and (1, -2). I won't describe the other ones, you get the idea.</p>
+                `,
+                enemies: `
+                    <h3>Enemies</h3>
+                    <p>In the "Enemies" tab of the side menu one will find the enemy matrix. This matrix specifies the 
+                        relationships between different pieces. Selecting a button in this matrix means that the row piece 
+                        will be able to attack the column piece. In other words, if during the simulation an empty square 
+                        is being targeted by a row piece, then a column piece will not be allowed to be placed there.</p>
+                    <p>These relationships don't have to be symmetric and a piece could even attack itself, though I don't 
+                        recommend the latter because it leaves a lot of empty spaces.</p>
+                `
+            };
+            
+            contentDiv.innerHTML = explanations[pieceType] || explanations.overview;
+            contentDiv.scrollTop = 0;
+        }
+
+        function setupHelpMenu() {
+            // Open modal
+            document.getElementById('helpButton').addEventListener('click', showHelpModal);
+            
+            // Close modal
+            document.getElementById('closeHelpBtn').addEventListener('click', hideHelpModal);
+            
+            // Close when clicking outside modal content
+            document.getElementById('helpModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('helpModal')) {
+                    hideHelpModal();
+                }
+            });
+            
+            // Piece buttons
+            const pieceBtns = document.querySelectorAll('.help-piece-btn');
+            pieceBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Update active state
+                    pieceBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    // Update content
+                    const pieceType = btn.dataset.piece;
+                    updateHelpContent(pieceType);
+                });
+            });
+            
+            // Initialize with overview
+            updateHelpContent('overview');
+        }
+        
+        // ========== INITIALIZE ==========
+        function init() {
+            setupCanvasInteractions();
+            setupHelpMenu();
+            
+            document.getElementById('zoomInBtn').addEventListener('click', zoomIn);
+            document.getElementById('zoomOutBtn').addEventListener('click', zoomOut);
+            document.getElementById('resetViewBtn').addEventListener('click', resetView);
+            document.getElementById('downloadBtn').addEventListener('click', downloadCanvasAsImage);
+            document.getElementById('simulateBtn').addEventListener('click', runSimulation);
+            document.getElementById('addPieceBtn').addEventListener('click', addPieceWithDefaults);
+            document.getElementById('panelLip').addEventListener('click', togglePanel);
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+            });
+            
+            document.getElementById('configPanel').classList.remove('open');
+            
+            loadModule();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
