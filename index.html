@@ -1364,9 +1364,9 @@
             }
             
             let ring = parseInt(document.getElementById('ring').value);
-            if (ring < 0) {
-                ring = 0;
-                document.getElementById('ring').value = "0";
+            if (ring < 10) {
+                ring = 10;
+                document.getElementById('ring').value = "10";
             } else if (ring > 1000) {
                 ring = 1000;
                 document.getElementById('ring').value = "1000";
