@@ -910,7 +910,7 @@
             const id = Date.now() + Math.random();
             const newIndex = pieces.length;
 
-            let enemiesString = '0'.repeat(pieces.length);
+            let enemiesString = '1'.repeat(pieces.length);
             pieces.push({
                 id: id,
                 type: 'N',
@@ -920,7 +920,10 @@
             });
 
             pieces.forEach(piece => {
-                piece.enemies = '0' + piece.enemies;
+                if (piece.id === id)
+                    piece.enemies = '0' + piece.enemies;
+                else
+                    piece.enemies = '1' + piece.enemies;
             });
 
             normalizeEnemiesStrings();
