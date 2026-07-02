@@ -1,7 +1,7 @@
 # Spiraling Out
 ## Spiral Chess Simulator by Mx. M
 
-Congrats on finding the repository! If you're confused, I urge you to check out the [website](mx-m29.github.io/spiraling-out) first, open the help menu by clicking the button on the bottom left, and read the explanations. And also play around a little! It's really fun!
+Congrats on finding the repository! If you're confused, I urge you to check out the [website](https://mx-m29.github.io/spiraling-out) first, open the help menu by clicking the button on the bottom left, and read the explanations. And also play around a little! It's really fun!
 
 Here you'll find the guts of the website, as well as the original C++ source code I wrote to run the simulations. \
 I'm freshly out of college and inexperienced in writing READMEs so forgive me if this one sucks.
